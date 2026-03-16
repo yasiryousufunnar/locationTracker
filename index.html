@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GeoScan Pro — Location Intelligence</title>
+<meta name="description" content="Advanced location intelligence dashboard using IP + GPS data">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#060810;
+  --surface:#0b0d14;
+  --card:#0f1219;
+  --card2:#131720;
+  --border:rgba(255,255,255,0.07);
+  --border2:rgba(255,255,255,0.12);
+  --cyan:#00d4ff;
+  --cyan-dim:rgba(0,212,255,0.08);
+  --cyan-glow:rgba(0,212,255,0.15);
+  --green:#00e676;
+  --green-dim:rgba(0,230,118,0.08);
+  --amber:#ffab40;
+  --amber-dim:rgba(255,171,64,0.08);
+  --purple:#b388ff;
+  --purple-dim:rgba(179,136,255,0.08);
+  --red:#ff5252;
+  --red-dim:rgba(255,82,82,0.08);
+  --text:#e2e8f4;
+  --text2:#8892a4;
+  --text3:#4a5468;
+  --mono:'JetBrains Mono',monospace;
+  --body:'Outfit',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--body);
+  min-height:100vh;
+  overflow-x:hidden;
+}
+
+/* Animated grid background */
+body::before{
+  content:'';
+  position:fixed;inset:0;
+  background-image:
+    linear-gradient(rgba(0,212,255,0.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,212,255,0.03) 1px,transparent 1px);
+  background-size:60px 60px;
+  pointer-events:none;z-index:0;
+}
+
+/* Glowing orbs */
+.orb{position:fixed;border-radius:50%;pointer-events:none;z-index:0;filter:blur(80px)}
+.orb1{width:500px;height:500px;background:rgba(0,212,255,0.04);top:-150px;left:-100px}
+.orb2{width:400px;height:400px;background:rgba(179,136,255,0.04);bottom:-100px;right:-80px}
+.orb3{width:300px;height:300px;background:rgba(0,230,118,0.03);top:50%;left:50%;transform:translate(-50%,-50%)}
+
+.wrapper{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:0 1.5rem 5rem}
+
+/* ── HEADER ── */
+.site-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:2rem 0 1.5rem;
+  border-bottom:1px solid var(--border);
+  margin-bottom:2.5rem;
+  flex-wrap:wrap;gap:1rem;
+}
+.logo{display:flex;align-items:center;gap:14px}
+.logo-mark{
+  width:44px;height:44px;
+  border:1px solid var(--cyan);
+  border-radius:12px;
+  display:flex;align-items:center;justify-content:center;
+  position:relative;
+  overflow:hidden;
+}
+.logo-mark::after{
+  content:'';position:absolute;inset:0;
+  background:var(--cyan-dim);
+}
+.logo-mark svg{color:var(--cyan);position:relative;z-index:1}
+.logo-name{font-size:1.2rem;font-weight:700;letter-spacing:.04em}
+.logo-tag{font-size:.65rem;color:var(--text2);font-family:var(--mono);letter-spacing:.1em;margin-top:1px}
+.header-right{display:flex;align-items:center;gap:10px}
+.live-badge{
+  display:flex;align-items:center;gap:6px;
+  padding:5px 12px;
+  border:1px solid var(--border);
+  border-radius:20px;
+  font-family:var(--mono);font-size:.65rem;color:var(--text3);
+  letter-spacing:.08em;
+}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--text3)}
+.live-dot.active{background:var(--green);animation:liveBlink 1.5s ease infinite}
+@keyframes liveBlink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ── SCAN BUTTON ── */
+.scan-area{margin-bottom:2rem}
+.scan-btn{
+  width:100%;padding:1.2rem 2rem;
+  background:transparent;
+  border:1px solid var(--cyan);
+  border-radius:14px;
+  color:var(--cyan);
+  font-family:var(--mono);font-size:.88rem;font-weight:700;
+  letter-spacing:.14em;text-transform:uppercase;
+  cursor:pointer;transition:all .3s;
+  display:flex;align-items:center;justify-content:center;gap:12px;
+  position:relative;overflow:hidden;
+}
+.scan-btn::before{
+  content:'';position:absolute;inset:0;
+  background:var(--cyan);opacity:0;transition:opacity .3s;
+}
+.scan-btn:not(:disabled):hover::before{opacity:.05}
+.scan-btn:not(:disabled):hover{border-color:rgba(0,212,255,.8);letter-spacing:.18em}
+.scan-btn:disabled{opacity:.35;cursor:not-allowed;letter-spacing:.14em}
+.scan-btn .btn-inner{position:relative;z-index:1;display:flex;align-items:center;gap:12px}
+.scan-icon{width:16px;height:16px;border:1.5px solid var(--cyan);border-radius:50%;position:relative;flex-shrink:0}
+.scan-icon::after{content:'';position:absolute;top:50%;left:50%;width:5px;height:5px;background:var(--cyan);border-radius:50%;transform:translate(-50%,-50%)}
+.scan-icon.spinning{animation:scanSpin 1s linear infinite}
+@keyframes scanSpin{to{transform:rotate(360deg)}}
+
+/* Progress bar */
+.progress-wrap{
+  height:2px;background:var(--border);border-radius:2px;
+  margin-top:10px;overflow:hidden;display:none;
+}
+.progress-fill{
+  height:100%;width:0%;
+  background:linear-gradient(90deg,var(--cyan),var(--green));
+  border-radius:2px;transition:width .4s ease;
+}
+
+/* Status */
+.status-line{
+  display:none;align-items:center;gap:8px;
+  font-family:var(--mono);font-size:.72rem;color:var(--cyan);
+  letter-spacing:.06em;padding:10px 14px;
+  background:rgba(0,212,255,.04);border:1px solid rgba(0,212,255,.12);
+  border-radius:8px;margin-top:10px;
+}
+.status-line.show{display:flex}
+.status-line.err{color:var(--red);background:var(--red-dim);border-color:rgba(255,82,82,.2)}
+.s-dot{width:5px;height:5px;border-radius:50%;background:currentColor;animation:liveBlink 1s infinite;flex-shrink:0}
+
+/* ── SECTION ── */
+.sec{margin-bottom:2.5rem;animation:fadeUp .5s ease both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.sec-head{
+  display:flex;align-items:center;gap:10px;
+  margin-bottom:1.2rem;
+  padding-bottom:.8rem;
+  border-bottom:1px solid var(--border);
+}
+.sec-tag{
+  font-family:var(--mono);font-size:.62rem;font-weight:700;
+  letter-spacing:.1em;text-transform:uppercase;
+  padding:3px 10px;border-radius:4px;
+}
+.tag-ip{background:var(--cyan-dim);color:var(--cyan);border:1px solid rgba(0,212,255,.2)}
+.tag-gps{background:var(--green-dim);color:var(--green);border:1px solid rgba(0,230,118,.2)}
+.tag-dev{background:var(--purple-dim);color:var(--purple);border:1px solid rgba(179,136,255,.2)}
+.tag-cmp{background:var(--amber-dim);color:var(--amber);border:1px solid rgba(255,171,64,.2)}
+.tag-net{background:rgba(255,82,82,.08);color:var(--red);border:1px solid rgba(255,82,82,.2)}
+.tag-export{background:rgba(255,255,255,.04);color:var(--text2);border:1px solid var(--border)}
+.sec-title{font-size:.85rem;font-weight:600;color:var(--text2);flex:1}
+.sec-note{font-family:var(--mono);font-size:.62rem;color:var(--text3)}
+
+/* ── CARDS ── */
+.g-card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:1.25rem 1.5rem;
+  height:100%;transition:border-color .3s;
+}
+.g-card:hover{border-color:var(--border2)}
+.g-card.c-cyan{border-left:2px solid var(--cyan)}
+.g-card.c-green{border-left:2px solid var(--green)}
+.g-card.c-amber{border-left:2px solid var(--amber)}
+.g-card.c-purple{border-left:2px solid var(--purple)}
+
+/* Hero metrics */
+.hero-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:1.2rem}
+.hero-metric{
+  background:var(--card2);border:1px solid var(--border);
+  border-radius:10px;padding:14px;text-align:center;
+}
+.hero-metric .hm-val{
+  font-family:var(--mono);font-size:1.05rem;font-weight:700;
+  color:var(--cyan);line-height:1.2;margin-bottom:4px;
+  word-break:break-all;
+}
+.hero-metric .hm-val.green{color:var(--green)}
+.hero-metric .hm-val.amber{color:var(--amber)}
+.hero-metric .hm-val.purple{color:var(--purple)}
+.hero-metric .hm-key{font-family:var(--mono);font-size:.58rem;color:var(--text3);letter-spacing:.08em;text-transform:uppercase}
+
+/* Row metrics */
+.mrow{
+  display:flex;justify-content:space-between;align-items:flex-start;
+  padding:9px 0;border-bottom:1px solid var(--border);gap:12px;
+}
+.mrow:last-child{border-bottom:none;padding-bottom:0}
+.mrow:first-child{padding-top:0}
+.mrow .mk{font-family:var(--mono);font-size:.65rem;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;flex-shrink:0;padding-top:1px}
+.mrow .mv{font-size:.82rem;color:var(--text);font-weight:500;text-align:right;word-break:break-word;max-width:65%}
+.mrow .mv.cyan{color:var(--cyan);font-family:var(--mono)}
+.mrow .mv.green{color:var(--green)}
+.mrow .mv.amber{color:var(--amber)}
+.mrow .mv.purple{color:var(--purple)}
+.mrow .mv.sm{font-size:.75rem}
+
+/* Pill badges */
+.pill{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-family:var(--mono);font-size:.6rem;letter-spacing:.04em;font-weight:500}
+.pill::before{content:'';width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0}
+.p-yes{background:rgba(0,230,118,.1);color:var(--green);border:1px solid rgba(0,230,118,.2)}
+.p-no{background:rgba(74,84,104,.15);color:var(--text3);border:1px solid var(--border)}
+.p-warn{background:var(--amber-dim);color:var(--amber);border:1px solid rgba(255,171,64,.2)}
+.p-danger{background:var(--red-dim);color:var(--red);border:1px solid rgba(255,82,82,.2)}
+.p-info{background:var(--cyan-dim);color:var(--cyan);border:1px solid rgba(0,212,255,.2)}
+
+/* Accuracy bar */
+.acc-wrap{margin:6px 0 3px}
+.acc-track{background:var(--card2);border:1px solid var(--border);border-radius:6px;height:5px;overflow:hidden}
+.acc-fill{height:100%;border-radius:6px;background:var(--green);transition:width .9s cubic-bezier(.4,0,.2,1);width:0%}
+.acc-label{font-family:var(--mono);font-size:.62rem;color:var(--text3);margin-top:4px}
+
+/* Map */
+.map-card{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:14px;overflow:hidden;position:relative;
+}
+.map-card iframe{width:100%;height:320px;border:none;display:block;filter:invert(0.9) hue-rotate(180deg) saturate(0.8) brightness(0.85)}
+.map-hud{
+  position:absolute;top:12px;left:12px;right:12px;
+  display:flex;justify-content:space-between;align-items:flex-start;
+  pointer-events:none;
+}
+.map-badge{
+  background:rgba(6,8,16,.88);border:1px solid var(--border2);
+  border-radius:8px;padding:6px 12px;
+  font-family:var(--mono);font-size:.62rem;letter-spacing:.06em;
+}
+.map-coords{color:var(--green)}
+.map-acc{color:var(--amber)}
+.map-copy-btn{
+  pointer-events:all;
+  background:rgba(6,8,16,.88);border:1px solid var(--cyan);
+  border-radius:8px;padding:6px 12px;
+  font-family:var(--mono);font-size:.62rem;color:var(--cyan);
+  cursor:pointer;letter-spacing:.06em;transition:all .2s;
+}
+.map-copy-btn:hover{background:var(--cyan-dim)}
+
+/* Compare */
+.cmp-result{
+  border-radius:10px;padding:14px 16px;
+  font-size:.85rem;font-weight:500;margin-top:14px;
+  border:1px solid;line-height:1.6;
+}
+.cmp-match{background:var(--green-dim);border-color:rgba(0,230,118,.2);color:var(--green)}
+.cmp-miss{background:var(--amber-dim);border-color:rgba(255,171,64,.2);color:var(--amber)}
+
+/* Network speed */
+.speed-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.speed-box{
+  background:var(--card2);border:1px solid var(--border);border-radius:10px;
+  padding:12px;text-align:center;
+}
+.speed-val{font-family:var(--mono);font-size:1.1rem;font-weight:700;color:var(--cyan);margin-bottom:3px}
+.speed-unit{font-family:var(--mono);font-size:.58rem;color:var(--text3);text-transform:uppercase;letter-spacing:.06em}
+
+/* Export buttons */
+.export-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:1rem}
+.exp-btn{
+  padding:8px 16px;border-radius:8px;font-family:var(--mono);
+  font-size:.68rem;font-weight:700;letter-spacing:.08em;cursor:pointer;
+  border:1px solid var(--border2);background:var(--card2);
+  color:var(--text2);transition:all .2s;text-transform:uppercase;
+}
+.exp-btn:hover{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.exp-btn.green:hover{border-color:var(--green);color:var(--green);background:var(--green-dim)}
+.exp-btn.amber:hover{border-color:var(--amber);color:var(--amber);background:var(--amber-dim)}
+
+/* Toast */
+.toast-wrap{position:fixed;bottom:24px;right:24px;z-index:999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{
+  background:var(--card2);border:1px solid var(--border2);
+  border-radius:10px;padding:10px 16px;
+  font-family:var(--mono);font-size:.72rem;color:var(--text);
+  letter-spacing:.04em;opacity:0;transform:translateX(20px);
+  transition:all .3s;pointer-events:none;max-width:280px;
+}
+.toast.show{opacity:1;transform:translateX(0)}
+.toast.success{border-color:rgba(0,230,118,.3);color:var(--green)}
+.toast.error{border-color:rgba(255,82,82,.3);color:var(--red)}
+
+/* Scan history */
+.history-item{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:8px 12px;background:var(--card2);border:1px solid var(--border);
+  border-radius:8px;margin-bottom:6px;cursor:pointer;transition:border-color .2s;
+}
+.history-item:hover{border-color:var(--border2)}
+.history-time{font-family:var(--mono);font-size:.65rem;color:var(--text3)}
+.history-loc{font-size:.8rem;color:var(--text2);font-weight:500}
+
+/* Skeleton loader */
+.skel{background:var(--card2);border-radius:4px;animation:shimmer 1.5s infinite}
+@keyframes shimmer{0%{opacity:.4}50%{opacity:.8}100%{opacity:.4}}
+
+/* Footer */
+.site-footer{
+  margin-top:3rem;padding:1.5rem 0;
+  border-top:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:10px;
+}
+.footer-left{font-family:var(--mono);font-size:.62rem;color:var(--text3);letter-spacing:.08em}
+.footer-right{display:flex;gap:12px}
+.footer-link{font-family:var(--mono);font-size:.62rem;color:var(--text3);text-decoration:none;letter-spacing:.06em;transition:color .2s}
+.footer-link:hover{color:var(--cyan)}
+
+/* Responsive */
+@media(max-width:576px){
+  .wrapper{padding:0 1rem 4rem}
+  .site-header{padding:1.5rem 0 1rem}
+  .hero-grid{grid-template-columns:repeat(2,1fr)}
+  .speed-grid{grid-template-columns:repeat(3,1fr)}
+  .map-card iframe{height:260px}
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.2)}
+</style>
+</head>
+<body>
+
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+<div class="orb orb3"></div>
+
+<!-- Toast container -->
+<div class="toast-wrap" id="toastWrap"></div>
+
+<div class="wrapper">
+
+<!-- HEADER -->
+<header class="site-header">
+  <div class="logo">
+    <div class="logo-mark">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+        <circle cx="12" cy="9" r="2.5"/>
+      </svg>
+    </div>
+    <div>
+      <div class="logo-name">GeoScan <span style="color:var(--cyan)">Pro</span></div>
+      <div class="logo-tag">LOCATION INTELLIGENCE DASHBOARD</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="live-badge">
+      <div class="live-dot" id="liveDot"></div>
+      <span id="liveStatus">READY</span>
+    </div>
+  </div>
+</header>
+
+<!-- SCAN AREA -->
+<div class="scan-area">
+  <button class="scan-btn" id="scanBtn" onclick="startFullScan()">
+    <div class="btn-inner">
+      <div class="scan-icon" id="scanIcon"></div>
+      <span id="btnTxt">START FULL SCAN — IP + GPS + NETWORK</span>
+    </div>
+  </button>
+  <div class="progress-wrap" id="progWrap">
+    <div class="progress-fill" id="progFill"></div>
+  </div>
+  <div class="status-line" id="statusLine">
+    <div class="s-dot"></div>
+    <span id="statusTxt"></span>
+  </div>
+</div>
+
+<!-- IP SECTION -->
+<div id="ipSec" style="display:none" class="sec">
+  <div class="sec-head">
+    <span class="sec-tag tag-ip">IP DATA</span>
+    <span class="sec-title">Public IP Address Intelligence</span>
+    <span class="sec-note" id="ipSrc">—</span>
+  </div>
+  <div class="row g-3">
+    <div class="col-12">
+      <div class="g-card c-cyan">
+        <div class="hero-grid">
+          <div class="hero-metric"><div class="hm-val" id="h-ip">—</div><div class="hm-key">Public IP</div></div>
+          <div class="hero-metric"><div class="hm-val" id="h-city">—</div><div class="hm-key">Sheher</div></div>
+          <div class="hero-metric"><div class="hm-val" id="h-country">—</div><div class="hm-key">Mulk</div></div>
+          <div class="hero-metric"><div class="hm-val amber" id="h-isp">—</div><div class="hm-key">ISP</div></div>
+          <div class="hero-metric"><div class="hm-val green" id="h-tz">—</div><div class="hm-key">Timezone</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="g-card h-100">
+        <div class="mrow"><span class="mk">Region / Province</span><span class="mv cyan" id="ip-region">—</span></div>
+        <div class="mrow"><span class="mk">Country Code</span><span class="mv" id="ip-cc">—</span></div>
+        <div class="mrow"><span class="mk">Postal Code</span><span class="mv" id="ip-postal">—</span></div>
+        <div class="mrow"><span class="mk">Calling Code</span><span class="mv" id="ip-calling">—</span></div>
+        <div class="mrow"><span class="mk">IP Latitude</span><span class="mv cyan" id="ip-lat">—</span></div>
+        <div class="mrow"><span class="mk">IP Longitude</span><span class="mv cyan" id="ip-lng">—</span></div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="g-card h-100">
+        <div class="mrow"><span class="mk">ASN Number</span><span class="mv" id="ip-asn">—</span></div>
+        <div class="mrow"><span class="mk">Organisation</span><span class="mv sm" id="ip-org">—</span></div>
+        <div class="mrow"><span class="mk">IP Version</span><span class="mv" id="ip-ver">—</span></div>
+        <div class="mrow"><span class="mk">Mobile Network</span><span class="mv" id="ip-mobile">—</span></div>
+        <div class="mrow"><span class="mk">VPN / Proxy</span><span class="mv" id="ip-vpn">—</span></div>
+        <div class="mrow"><span class="mk">Hosting / DC</span><span class="mv" id="ip-hosting">—</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- GPS SECTION -->
+<div id="gpsSec" style="display:none" class="sec">
+  <div class="sec-head">
+    <span class="sec-tag tag-gps">GPS</span>
+    <span class="sec-title">Precise Location Data</span>
+    <span class="sec-note" id="gpsAccNote">Waiting...</span>
+  </div>
+  <div class="row g-3">
+    <div class="col-md-5">
+      <div class="g-card c-green h-100">
+        <div class="mrow">
+          <span class="mk">Latitude</span>
+          <span class="mv green" id="gps-lat" style="font-size:.95rem;font-weight:700;font-family:var(--mono)">—</span>
+        </div>
+        <div class="mrow">
+          <span class="mk">Longitude</span>
+          <span class="mv green" id="gps-lng" style="font-size:.95rem;font-weight:700;font-family:var(--mono)">—</span>
+        </div>
+        <div class="mrow">
+          <span class="mk">Accuracy</span>
+          <div style="text-align:right">
+            <div class="mv green" id="gps-acc">—</div>
+            <div class="acc-wrap">
+              <div class="acc-track" style="width:120px;margin-left:auto">
+                <div class="acc-fill" id="accFill"></div>
+              </div>
+            </div>
+            <div class="acc-label" id="accLabel">—</div>
+          </div>
+        </div>
+        <div class="mrow"><span class="mk">Altitude</span><span class="mv" id="gps-alt">—</span></div>
+        <div class="mrow"><span class="mk">Speed</span><span class="mv" id="gps-speed">—</span></div>
+        <div class="mrow"><span class="mk">Heading</span><span class="mv" id="gps-heading">—</span></div>
+        <div class="mrow"><span class="mk">Timestamp</span><span class="mv sm" id="gps-ts">—</span></div>
+        <div class="mrow"><span class="mk">Google Maps</span>
+          <span class="mv"><a id="gmaps-link" href="#" target="_blank" style="color:var(--cyan);font-family:var(--mono);font-size:.7rem">Open ↗</a></span>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-7">
+      <div class="row g-3">
+        <div class="col-12">
+          <div class="g-card">
+            <div class="mrow"><span class="mk">Full Address</span><span class="mv green sm" id="gps-addr" style="line-height:1.5">Loading...</span></div>
+            <div class="mrow"><span class="mk">Mohalla / Area</span><span class="mv" id="gps-suburb">—</span></div>
+            <div class="mrow"><span class="mk">Sheher</span><span class="mv" id="gps-city">—</span></div>
+            <div class="mrow"><span class="mk">District</span><span class="mv" id="gps-district">—</span></div>
+            <div class="mrow"><span class="mk">State / Province</span><span class="mv" id="gps-state">—</span></div>
+            <div class="mrow"><span class="mk">Country</span><span class="mv" id="gps-country">—</span></div>
+            <div class="mrow"><span class="mk">Postcode</span><span class="mv cyan" id="gps-post">—</span></div>
+          </div>
+        </div>
+        <div class="col-12">
+          <div class="map-card">
+            <iframe id="mapIframe" src="about:blank" loading="lazy"></iframe>
+            <div class="map-hud">
+              <div class="map-badge map-coords" id="mapCoords">— , —</div>
+              <div style="display:flex;gap:6px;align-items:center">
+                <div class="map-badge map-acc" id="mapAcc">± — m</div>
+                <button class="map-copy-btn" onclick="copyCoords()">COPY</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- COMPARE SECTION -->
+<div id="cmpSec" style="display:none" class="sec">
+  <div class="sec-head">
+    <span class="sec-tag tag-cmp">COMPARE</span>
+    <span class="sec-title">IP vs GPS Analysis</span>
+  </div>
+  <div class="g-card c-amber">
+    <div class="row g-3">
+      <div class="col-md-3">
+        <div class="hero-metric">
+          <div class="hm-val amber" id="c-ipcity">—</div>
+          <div class="hm-key">IP City</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="hero-metric">
+          <div class="hm-val green" id="c-gpscity">—</div>
+          <div class="hm-key">GPS City</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="hero-metric">
+          <div class="hm-val" id="c-dist" style="color:var(--cyan)">—</div>
+          <div class="hm-key">Distance</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="hero-metric">
+          <div class="hm-val green" id="c-gpsacc">—</div>
+          <div class="hm-key">GPS Accuracy</div>
+        </div>
+      </div>
+    </div>
+    <div class="row g-2 mt-2">
+      <div class="col-md-6">
+        <div class="mrow"><span class="mk">IP Coords</span><span class="mv cyan" id="c-ipcoords">—</span></div>
+        <div class="mrow"><span class="mk">GPS Coords</span><span class="mv green" id="c-gpscoords">—</span></div>
+      </div>
+      <div class="col-md-6">
+        <div class="mrow"><span class="mk">IP Country</span><span class="mv" id="c-ipctry">—</span></div>
+        <div class="mrow"><span class="mk">GPS Country</span><span class="mv" id="c-gpsctry">—</span></div>
+      </div>
+    </div>
+    <div class="cmp-result" id="cmpBox"><span id="cmpTxt">—</span></div>
+  </div>
+</div>
+
+<!-- NETWORK SECTION -->
+<div id="netSec" style="display:none" class="sec">
+  <div class="sec-head">
+    <span class="sec-tag tag-net">NETWORK</span>
+    <span class="sec-title">Connection Speed Test</span>
+    <span class="sec-note" id="netNote">—</span>
+  </div>
+  <div class="g-card">
+    <div class="speed-grid mb-3">
+      <div class="speed-box">
+        <div class="speed-val" id="net-dl">—</div>
+        <div class="speed-unit">Download<br>Mbps</div>
+      </div>
+      <div class="speed-box">
+        <div class="speed-val" id="net-rtt">—</div>
+        <div class="speed-unit">RTT<br>ms</div>
+      </div>
+      <div class="speed-box">
+        <div class="speed-val" id="net-type">—</div>
+        <div class="speed-unit">Type</div>
+      </div>
+    </div>
+    <div class="mrow"><span class="mk">Effective Type</span><span class="mv cyan" id="net-eff">—</span></div>
+    <div class="mrow"><span class="mk">Save Data Mode</span><span class="mv" id="net-save">—</span></div>
+    <div class="mrow"><span class="mk">Online Status</span><span class="mv" id="net-online">—</span></div>
+    <div class="mrow"><span class="mk">Protocol</span><span class="mv" id="net-proto">HTTP/HTTPS</span></div>
+  </div>
+</div>
+
+<!-- DEVICE SECTION -->
+<div id="devSec" style="display:none" class="sec">
+  <div class="sec-head">
+    <span class="sec-tag tag-dev">DEVICE</span>
+    <span class="sec-title">Browser + Hardware Information</span>
+  </div>
+  <div class="row g-3">
+    <div class="col-md-4">
+      <div class="g-card c-purple h-100">
+        <div class="mrow"><span class="mk">Browser</span><span class="mv purple" id="d-browser">—</span></div>
+        <div class="mrow"><span class="mk">Browser Version</span><span class="mv sm" id="d-bver">—</span></div>
+        <div class="mrow"><span class="mk">Engine</span><span class="mv" id="d-engine">—</span></div>
+        <div class="mrow"><span class="mk">Operating System</span><span class="mv" id="d-os">—</span></div>
+        <div class="mrow"><span class="mk">Device Type</span><span class="mv" id="d-type">—</span></div>
+        <div class="mrow"><span class="mk">Touch Points</span><span class="mv" id="d-touch">—</span></div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="g-card h-100">
+        <div class="mrow"><span class="mk">Screen</span><span class="mv cyan" id="d-screen">—</span></div>
+        <div class="mrow"><span class="mk">Viewport</span><span class="mv" id="d-viewport">—</span></div>
+        <div class="mrow"><span class="mk">Pixel Ratio</span><span class="mv" id="d-dpr">—</span></div>
+        <div class="mrow"><span class="mk">Color Depth</span><span class="mv" id="d-color">—</span></div>
+        <div class="mrow"><span class="mk">Orientation</span><span class="mv" id="d-orient">—</span></div>
+        <div class="mrow"><span class="mk">GPU Renderer</span><span class="mv sm" id="d-gpu">—</span></div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="g-card h-100">
+        <div class="mrow"><span class="mk">CPU Cores</span><span class="mv purple" id="d-cores">—</span></div>
+        <div class="mrow"><span class="mk">RAM (approx)</span><span class="mv" id="d-ram">—</span></div>
+        <div class="mrow"><span class="mk">Battery</span><span class="mv" id="d-battery">—</span></div>
+        <div class="mrow"><span class="mk">Language</span><span class="mv" id="d-lang">—</span></div>
+        <div class="mrow"><span class="mk">Timezone</span><span class="mv" id="d-tz">—</span></div>
+        <div class="mrow"><span class="mk">Do Not Track</span><span class="mv" id="d-dnt">—</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- EXPORT SECTION -->
+<div id="exportSec" style="display:none" class="sec">
+  <div class="sec-head">
+    <span class="sec-tag tag-export">EXPORT</span>
+    <span class="sec-title">Save & Share Data</span>
+  </div>
+  <div class="g-card">
+    <p style="font-size:.82rem;color:var(--text2);margin-bottom:.5rem">Scan data ko alag formats mein export karein:</p>
+    <div class="export-row">
+      <button class="exp-btn" onclick="exportJSON()">Export JSON</button>
+      <button class="exp-btn green" onclick="exportCSV()">Export CSV</button>
+      <button class="exp-btn amber" onclick="copyAll()">Copy All Data</button>
+      <button class="exp-btn" onclick="printReport()">Print Report</button>
+    </div>
+    <div style="margin-top:1.2rem">
+      <div class="sec-note" style="margin-bottom:.5rem">SCAN HISTORY (last 5)</div>
+      <div id="historyList"><div style="font-size:.78rem;color:var(--text3);font-family:var(--mono)">Koi scan nahi hua abhi.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer class="site-footer">
+  <div class="footer-left">GEOSCAN PRO &nbsp;·&nbsp; <span id="scanCount">0</span> SCANS &nbsp;·&nbsp; <span id="footerTime">—</span></div>
+  <div class="footer-right">
+    <a href="https://github.com" class="footer-link" target="_blank">GITHUB ↗</a>
+    <a href="#" class="footer-link" onclick="clearHistory()">CLEAR HISTORY</a>
+  </div>
+</footer>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+/* ─── STATE ─── */
+var state = { ip:{}, gps:{}, scans:0, history:[] };
+var allData = {};
+
+/* ─── UTILS ─── */
+function $(id){ return document.getElementById(id) }
+function set(id,val){ var el=$(id); if(el) el.textContent=val||'—' }
+function setHTML(id,val){ var el=$(id); if(el) el.innerHTML=val||'—' }
+
+function toast(msg,type){
+  var wrap=$('toastWrap');
+  var t=document.createElement('div');
+  t.className='toast '+(type||'');
+  t.textContent=msg;
+  wrap.appendChild(t);
+  requestAnimationFrame(function(){ t.classList.add('show') });
+  setTimeout(function(){ t.classList.remove('show'); setTimeout(function(){ wrap.removeChild(t) },400) },3000);
+}
+
+function setStatus(msg,isErr){
+  var line=$('statusLine');
+  line.className='status-line show'+(isErr?' err':'');
+  $('statusTxt').textContent=msg;
+}
+function clearStatus(){ $('statusLine').className='status-line' }
+
+function setProgress(pct){
+  $('progWrap').style.display='block';
+  $('progFill').style.width=pct+'%';
+  if(pct>=100){ setTimeout(function(){ $('progWrap').style.display='none' },600) }
+}
+
+function setLive(active,label){
+  var dot=$('liveDot');
+  dot.className='live-dot'+(active?' active':'');
+  $('liveStatus').textContent=label||'READY';
+}
+
+function haversine(lat1,lon1,lat2,lon2){
+  var R=6371,dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180;
+  var a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+/* ─── IP FETCH (multi-API chain) ─── */
+/* Multiple free IP APIs — tries each one if previous fails.
+   Works both on file:// (some) and hosted (all). */
+var IP_APIS = [
+  {
+    url:'https://ipwho.is/',
+    parse:function(d){
+      if(!d.success) throw new Error('ipwho.is failed');
+      return {
+        ip:d.ip, city:d.city, region:d.region, country:d.country,
+        country_code:d.country_code, latitude:d.latitude, longitude:d.longitude,
+        isp:d.connection&&d.connection.isp||d.isp||'—',
+        org:d.connection&&d.connection.org||'—',
+        asn:'AS'+(d.connection&&d.connection.asn||''),
+        timezone:d.timezone&&d.timezone.id||'—',
+        postal:d.postal||'—',
+        calling_code:d.calling_code||'—',
+        is_mobile:false, is_proxy:false, is_hosting:false,
+        ip_version: d.type||'IPv4',
+        source:'ipwho.is'
+      }
+    }
+  },
+  {
+    url:'https://ip-api.com/json/?fields=66846719',
+    parse:function(d){
+      if(d.status!=='success') throw new Error('ip-api failed');
+      return {
+        ip:d.query, city:d.city, region:d.regionName, country:d.country,
+        country_code:d.countryCode, latitude:d.lat, longitude:d.lon,
+        isp:d.isp||'—', org:d.org||'—', asn:d.as||'—',
+        timezone:d.timezone||'—', postal:d.zip||'—',
+        calling_code:'—',
+        is_mobile:d.mobile||false, is_proxy:d.proxy||false, is_hosting:d.hosting||false,
+        ip_version:'IPv4',
+        source:'ip-api.com'
+      }
+    }
+  },
+  {
+    url:'https://freeipapi.com/api/json',
+    parse:function(d){
+      return {
+        ip:d.ipAddress, city:d.cityName, region:d.regionName, country:d.countryName,
+        country_code:d.countryCode, latitude:d.latitude, longitude:d.longitude,
+        isp:'—', org:'—', asn:'—',
+        timezone:d.timeZone||'—', postal:d.zipCode||'—',
+        calling_code:'+'+d.callingCode,
+        is_mobile:false, is_proxy:false, is_hosting:false,
+        ip_version: d.ipVersion==='6'?'IPv6':'IPv4',
+        source:'freeipapi.com'
+      }
+    }
+  },
+  {
+    url:'https://ipinfo.io/json',
+    parse:function(d){
+      var loc=(d.loc||'0,0').split(',');
+      return {
+        ip:d.ip, city:d.city, region:d.region, country:d.country,
+        country_code:d.country, latitude:parseFloat(loc[0]), longitude:parseFloat(loc[1]),
+        isp:d.org||'—', org:d.org||'—', asn:(d.org||'').split(' ')[0]||'—',
+        timezone:d.timezone||'—', postal:d.postal||'—',
+        calling_code:'—',
+        is_mobile:false, is_proxy:false, is_hosting:false,
+        ip_version:'IPv4',
+        source:'ipinfo.io'
+      }
+    }
+  }
+];
+
+function fetchIPChain(idx){
+  if(idx>=IP_APIS.length){
+    setStatus('Koi bhi IP API kaam nahi kar rahi — network check karein.',true);
+    toast('IP fetch failed — network issue',error);
+    setProgress(30);
+    getGPS();
+    return;
+  }
+  var api=IP_APIS[idx];
+  setStatus('IP data le raha hai ('+api.url.split('/')[2]+')...');
+  fetch(api.url)
+    .then(function(r){
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      return r.json();
+    })
+    .then(function(d){
+      var parsed=api.parse(d);
+      renderIP(parsed);
+      toast('IP data mila via '+parsed.source,'success');
+    })
+    .catch(function(e){
+      console.warn(api.url+' failed:',e.message,', trying next...');
+      fetchIPChain(idx+1);
+    });
+}
+
+function renderIP(d){
+  state.ip=d; allData.ip=d;
+  set('h-ip', d.ip);
+  set('h-city', d.city);
+  set('h-country', d.country_code);
+  set('h-isp', (d.isp||d.org||'—').split(' ').slice(0,3).join(' '));
+  set('h-tz', (d.timezone||'—').split('/')[1]||(d.timezone||'—'));
+  set('ip-region', d.region);
+  set('ip-cc', d.country_code+' · '+d.country);
+  set('ip-postal', d.postal);
+  set('ip-calling', d.calling_code);
+  set('ip-lat', d.latitude?d.latitude.toFixed(4):'—');
+  set('ip-lng', d.longitude?d.longitude.toFixed(4):'—');
+  set('ip-asn', d.asn);
+  set('ip-org', d.org);
+  set('ip-ver', d.ip_version||'IPv4');
+  $('ipSrc').textContent='via '+d.source;
+  setHTML('ip-mobile', d.is_mobile
+    ? '<span class="pill p-warn">Mobile Data</span>'
+    : '<span class="pill p-no">WiFi / Broadband</span>');
+  setHTML('ip-vpn', (d.is_proxy||d.is_vpn)
+    ? '<span class="pill p-danger">VPN / Proxy detected</span>'
+    : '<span class="pill p-yes">Clean — no proxy</span>');
+  setHTML('ip-hosting', d.is_hosting
+    ? '<span class="pill p-warn">Hosting / Datacenter</span>'
+    : '<span class="pill p-yes">Residential</span>');
+  $('ipSec').style.display='block';
+  setProgress(35);
+  getGPS();
+}
+
+/* ─── GPS ─── */
+function getGPS(){
+  setStatus('GPS permission le raha hai — allow zaroor karein...');
+  if(!navigator.geolocation){
+    setStatus('GPS browser mein supported nahi.',true);
+    finalize(); return;
+  }
+  $('gpsSec').style.display='block';
+  set('gps-addr','Waiting for GPS...');
+  navigator.geolocation.getCurrentPosition(
+    onGPSSuccess,
+    onGPSError,
+    {enableHighAccuracy:true, timeout:25000, maximumAge:0}
+  );
+}
+
+function onGPSSuccess(pos){
+  var c=pos.coords;
+  state.gps={lat:c.latitude,lng:c.longitude,acc:c.accuracy};
+  allData.gps={lat:c.latitude,lng:c.longitude,acc:c.accuracy,alt:c.altitude,speed:c.speed,heading:c.heading};
+
+  set('gps-lat', c.latitude.toFixed(7));
+  set('gps-lng', c.longitude.toFixed(7));
+  set('gps-acc', Math.round(c.accuracy)+' meters');
+  set('gps-alt', c.altitude!=null ? Math.round(c.altitude)+' m' : 'N/A');
+  set('gps-speed', c.speed!=null ? (c.speed*3.6).toFixed(1)+' km/h' : 'Stationary');
+  set('gps-heading', c.heading!=null ? Math.round(c.heading)+'° ('+getDirection(c.heading)+')' : 'N/A');
+  set('gps-ts', new Date(pos.timestamp).toLocaleString());
+  $('gpsAccNote').textContent='± '+Math.round(c.accuracy)+' m';
+
+  var pct=Math.max(5,Math.min(100,Math.round((1-(c.accuracy/200))*100)));
+  $('accFill').style.width=pct+'%';
+  $('accLabel').textContent=c.accuracy<=5?'Excellent — ghar tak exact':
+    c.accuracy<=15?'Very good — door number level':
+    c.accuracy<=40?'Good — gali level':
+    c.accuracy<=100?'Fair — mohalla level':'Weak — area level only';
+
+  var gmaps='https://www.google.com/maps?q='+c.latitude+','+c.longitude;
+  $('gmaps-link').href=gmaps;
+
+  $('mapCoords').textContent=c.latitude.toFixed(5)+', '+c.longitude.toFixed(5);
+  $('mapAcc').textContent='± '+Math.round(c.accuracy)+' m';
+
+  $('mapIframe').src='https://www.openstreetmap.org/export/embed.html?bbox='
+    +(c.longitude-0.004)+','+(c.latitude-0.004)+','
+    +(c.longitude+0.004)+','+(c.latitude+0.004)
+    +'&layer=mapnik&marker='+c.latitude+','+c.longitude;
+
+  setProgress(70);
+  setStatus('GPS mila! Address resolve ho raha hai...');
+  toast('GPS exact location mili','success');
+
+  fetch('https://nominatim.openstreetmap.org/reverse?lat='+c.latitude+'&lon='+c.longitude+'&format=json&addressdetails=1&zoom=18')
+    .then(function(r){return r.json()})
+    .then(function(d){
+      var a=d.address||{};
+      var city=a.city||a.town||a.municipality||a.village||a.county||'—';
+      set('gps-addr', d.display_name||'—');
+      set('gps-suburb', a.suburb||a.neighbourhood||a.quarter||a.residential||'—');
+      set('gps-city', city);
+      set('gps-district', a.county||a.district||'—');
+      set('gps-state', a.state||'—');
+      set('gps-country', a.country||'—');
+      set('gps-post', a.postcode||'—');
+      allData.address=a;
+      showCompare(city, a.country||'');
+    })
+    .catch(function(){
+      set('gps-addr','Address reverse nahi hua');
+      showCompare('Unknown','');
+    });
+}
+
+function onGPSError(err){
+  var m={1:'Permission deny ki — browser settings mein location allow karein',
+         2:'GPS signal nahi mila — bahar ya window ke paas jayein',
+         3:'Timeout — dobara try karein'};
+  setStatus('GPS Error: '+(m[err.code]||err.message),true);
+  toast('GPS failed: '+(m[err.code]||err.message),'error');
+  set('gps-addr','GPS failed — ' + (m[err.code]||err.message));
+  $('gpsAccNote').textContent='Failed';
+  setProgress(70);
+  showCompare('—','');
+}
+
+function getDirection(h){
+  var dirs=['N','NE','E','SE','S','SW','W','NW'];
+  return dirs[Math.round(h/45)%8];
+}
+
+/* ─── COMPARE ─── */
+function showCompare(gpsCity,gpsCountry){
+  var ipCity=state.ip.city||'—';
+  set('c-ipcity', ipCity);
+  set('c-gpscity', gpsCity);
+  set('c-ipcoords', state.ip.latitude?state.ip.latitude.toFixed(4)+', '+state.ip.longitude.toFixed(4):'—');
+  set('c-gpscoords', state.gps.lat?state.gps.lat.toFixed(4)+', '+state.gps.lng.toFixed(4):'—');
+  set('c-gpsacc', state.gps.acc?'± '+Math.round(state.gps.acc)+' m':'—');
+  set('c-ipctry', state.ip.country||'—');
+  set('c-gpsctry', gpsCountry||'—');
+
+  if(state.ip.latitude&&state.gps.lat){
+    var dist=haversine(state.ip.latitude,state.ip.longitude,state.gps.lat,state.gps.lng);
+    set('c-dist', dist<1 ? Math.round(dist*1000)+' m' : dist.toFixed(1)+' km');
+  }
+
+  var box=$('cmpBox'), txt=$('cmpTxt');
+  var match=ipCity!=='—'&&gpsCity!=='—'&&ipCity.toLowerCase()===gpsCity.toLowerCase();
+  if(match){
+    box.className='cmp-result cmp-match';
+    txt.textContent='IP aur GPS dono "'+ipCity+'" confirm kar rahe hain. Location verified! GPS se exact delivery address available hai.';
+  } else {
+    box.className='cmp-result cmp-miss';
+    txt.textContent='IP ne "'+ipCity+'" bataya magar GPS ne "'+gpsCity+'" confirm kiya. IP location city-level approximate hoti hai (ISP ke datacenter se milti hai). GPS wali location use karein — ye sahi hai.';
+  }
+  $('cmpSec').style.display='block';
+  setProgress(90);
+  showExport();
+  addHistory();
+  finalize();
+}
+
+/* ─── NETWORK ─── */
+function fillNetwork(){
+  var conn=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
+  $('netSec').style.display='block';
+  if(conn){
+    set('net-dl', conn.downlink?conn.downlink+' Mbps':'—');
+    set('net-rtt', conn.rtt?conn.rtt+' ms':'—');
+    set('net-type', conn.type||conn.effectiveType||'—');
+    set('net-eff', conn.effectiveType||'—');
+    setHTML('net-save', conn.saveData?'<span class="pill p-warn">On</span>':'<span class="pill p-yes">Off</span>');
+    $('netNote').textContent=(conn.effectiveType||'').toUpperCase();
+    allData.network={dl:conn.downlink,rtt:conn.rtt,type:conn.type,eff:conn.effectiveType};
+  } else {
+    set('net-dl','API N/A'); set('net-rtt','—'); set('net-type','—');
+  }
+  setHTML('net-online', navigator.onLine
+    ? '<span class="pill p-yes">Online</span>'
+    : '<span class="pill p-danger">Offline</span>');
+  set('net-proto', location.protocol.replace(':','')+' · '+location.hostname);
+}
+
+/* ─── DEVICE ─── */
+function fillDevice(){
+  var ua=navigator.userAgent;
+  var browser,bver,engine;
+  if(/Edg\//.test(ua)){browser='Microsoft Edge';bver=ua.match(/Edg\/([\d.]+)/)?.[1]||'';engine='Blink'}
+  else if(/Chrome\//.test(ua)){browser='Google Chrome';bver=ua.match(/Chrome\/([\d.]+)/)?.[1]||'';engine='Blink/V8'}
+  else if(/Firefox\//.test(ua)){browser='Mozilla Firefox';bver=ua.match(/Firefox\/([\d.]+)/)?.[1]||'';engine='Gecko/SpiderMonkey'}
+  else if(/Safari\//.test(ua)&&!/Chrome/.test(ua)){browser='Apple Safari';bver=ua.match(/Version\/([\d.]+)/)?.[1]||'';engine='WebKit'}
+  else if(/OPR\//.test(ua)){browser='Opera';bver=ua.match(/OPR\/([\d.]+)/)?.[1]||'';engine='Blink'}
+  else{browser='Unknown';bver='';engine='Unknown'}
+
+  var os='/Android/.test(ua) ? "Android "+( ua.match(/Android ([\d.]+)/)?.[1]||"")';
+  os=/Android/.test(ua)?'Android '+(ua.match(/Android ([\d.]+)/)?.[1]||'')
+    :/iPhone|iPad/.test(ua)?'iOS '+(ua.match(/OS ([\d_]+)/)?.[1]?.replace(/_/g,'.')||'')
+    :/Windows NT 10/.test(ua)?'Windows 11/10'
+    :/Windows NT 6\.3/.test(ua)?'Windows 8.1'
+    :/Mac OS X/.test(ua)?'macOS '+(ua.match(/Mac OS X ([\d_]+)/)?.[1]?.replace(/_/g,'.')||'')
+    :/Linux/.test(ua)?'Linux':'Unknown';
+
+  var devType=/Mobile|Android|iPhone/.test(ua)?'Mobile':(/iPad|Tablet/.test(ua)?'Tablet':'Desktop');
+
+  set('d-browser',browser);
+  set('d-bver',bver||'Unknown');
+  set('d-engine',engine);
+  set('d-os',os);
+  set('d-type',devType);
+  set('d-touch', navigator.maxTouchPoints+' touch points');
+  set('d-screen', screen.width+'×'+screen.height+' px');
+  set('d-viewport', window.innerWidth+'×'+window.innerHeight+' px');
+  set('d-dpr', (window.devicePixelRatio||1).toFixed(1)+'x');
+  set('d-color', screen.colorDepth+' bit');
+  set('d-orient', screen.orientation?.type||'N/A');
+  set('d-lang', navigator.language||'—');
+  set('d-tz', Intl.DateTimeFormat().resolvedOptions().timeZone||'—');
+  set('d-cores', (navigator.hardwareConcurrency||'—')+' logical cores');
+  set('d-ram', navigator.deviceMemory?navigator.deviceMemory+' GB (approx)':'N/A');
+  setHTML('d-dnt', navigator.doNotTrack==='1'?'<span class="pill p-yes">On</span>':'<span class="pill p-no">Off</span>');
+
+  /* GPU via WebGL */
+  try{
+    var c=document.createElement('canvas');
+    var gl=c.getContext('webgl')||c.getContext('experimental-webgl');
+    var dbg=gl&&gl.getExtension('WEBGL_debug_renderer_info');
+    set('d-gpu', dbg?gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL):'N/A');
+  }catch(e){ set('d-gpu','N/A') }
+
+  /* Battery */
+  if(navigator.getBattery){
+    navigator.getBattery().then(function(b){
+      set('d-battery', Math.round(b.level*100)+'% '+(b.charging?'⚡ Charging':'🔋 On battery')+' ('+Math.round((b.charging?b.chargingTime:b.dischargingTime)/60)+' min)');
+    });
+  } else { set('d-battery','API N/A') }
+
+  allData.device={browser,os,devType,screen:screen.width+'×'+screen.height,cores:navigator.hardwareConcurrency,ram:navigator.deviceMemory};
+  $('devSec').style.display='block';
+}
+
+/* ─── EXPORT ─── */
+function showExport(){ $('exportSec').style.display='block' }
+
+function exportJSON(){
+  var blob=new Blob([JSON.stringify(allData,null,2)],{type:'application/json'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='geoscan-'+Date.now()+'.json';
+  a.click(); toast('JSON export ho gaya','success');
+}
+
+function exportCSV(){
+  var rows=[['Field','Value']];
+  if(allData.ip){
+    rows.push(['IP',allData.ip.ip],['City',allData.ip.city],['Country',allData.ip.country],
+      ['ISP',allData.ip.isp],['Latitude',allData.ip.latitude],['Longitude',allData.ip.longitude]);
+  }
+  if(allData.gps){
+    rows.push(['GPS_Lat',allData.gps.lat],['GPS_Lng',allData.gps.lng],
+      ['GPS_Accuracy_m',Math.round(allData.gps.acc)]);
+  }
+  var csv=rows.map(function(r){return r.map(function(c){return '"'+String(c||'').replace(/"/g,'""')+'"'}).join(',')}).join('\n');
+  var blob=new Blob([csv],{type:'text/csv'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='geoscan-'+Date.now()+'.csv';
+  a.click(); toast('CSV export ho gaya','success');
+}
+
+function copyAll(){
+  var lines=[];
+  if(allData.ip) lines.push('=== IP DATA ===','IP: '+allData.ip.ip,'City: '+allData.ip.city,'Country: '+allData.ip.country,'ISP: '+allData.ip.isp,'Timezone: '+allData.ip.timezone,'');
+  if(allData.gps) lines.push('=== GPS DATA ===','Latitude: '+allData.gps.lat,'Longitude: '+allData.gps.lng,'Accuracy: ±'+Math.round(allData.gps.acc)+' m','');
+  if(allData.address) lines.push('=== ADDRESS ===','Full: '+(allData.address.road||'')+', '+(allData.address.suburb||''),'City: '+(allData.address.city||allData.address.town||''),'Postcode: '+(allData.address.postcode||''));
+  navigator.clipboard&&navigator.clipboard.writeText(lines.join('\n'))
+    .then(function(){ toast('Data clipboard mein copy ho gaya','success') })
+    .catch(function(){ toast('Copy nahi hua','error') });
+}
+
+function copyCoords(){
+  if(!state.gps.lat){ toast('GPS data abhi nahi hai','error'); return }
+  var txt=state.gps.lat.toFixed(7)+', '+state.gps.lng.toFixed(7);
+  navigator.clipboard&&navigator.clipboard.writeText(txt)
+    .then(function(){ toast('Coordinates copy!','success') })
+    .catch(function(){ toast('Copy nahi hua','error') });
+}
+
+function printReport(){ window.print() }
+
+/* ─── HISTORY ─── */
+function addHistory(){
+  var entry={
+    time:new Date().toLocaleTimeString(),
+    city:state.gps.lat?(allData.address&&(allData.address.city||allData.address.town)||state.ip.city||'—'):'IP only: '+state.ip.city,
+    ip:state.ip.ip||'—',
+    lat:state.gps.lat?state.gps.lat.toFixed(4):'—',
+    lng:state.gps.lng?state.gps.lng.toFixed(4):'—'
+  };
+  state.history.unshift(entry);
+  if(state.history.length>5) state.history.pop();
+  renderHistory();
+}
+
+function renderHistory(){
+  var list=$('historyList');
+  if(!state.history.length){ list.innerHTML='<div style="font-size:.78rem;color:var(--text3);font-family:var(--mono)">Koi scan nahi hua abhi.</div>'; return }
+  list.innerHTML=state.history.map(function(h){
+    return '<div class="history-item">'
+      +'<div><div class="history-loc">'+h.city+'</div><div style="font-size:.7rem;color:var(--text3);font-family:var(--mono);margin-top:2px">IP: '+h.ip+' &nbsp;·&nbsp; GPS: '+h.lat+', '+h.lng+'</div></div>'
+      +'<div class="history-time">'+h.time+'</div>'
+      +'</div>';
+  }).join('');
+}
+
+function clearHistory(){ state.history=[]; renderHistory(); toast('History clear ho gaya') }
+
+/* ─── MAIN SCAN ─── */
+function startFullScan(){
+  var btn=$('scanBtn');
+  btn.disabled=true;
+  $('scanIcon').classList.add('spinning');
+  $('btnTxt').textContent='SCANNING...';
+  setLive(true,'SCANNING');
+  setProgress(5);
+
+  ['ipSec','gpsSec','cmpSec','netSec','devSec','exportSec'].forEach(function(id){
+    $(id).style.display='none';
+  });
+
+  fillNetwork();
+  fillDevice();
+  setProgress(15);
+  fetchIPChain(0);
+  state.scans++;
+  $('scanCount').textContent=state.scans;
+}
+
+function finalize(){
+  clearStatus();
+  var btn=$('scanBtn');
+  btn.disabled=false;
+  $('scanIcon').classList.remove('spinning');
+  $('btnTxt').textContent='RESCAN — IP + GPS + NETWORK';
+  setLive(false,'COMPLETE');
+  setProgress(100);
+  $('footerTime').textContent='Last: '+new Date().toLocaleTimeString();
+  toast('Full scan complete!','success');
+}
+
+/* ─── INIT ─── */
+$('footerTime').textContent=new Date().toLocaleString();
+</script>
+</body>
+</html>
